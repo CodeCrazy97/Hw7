@@ -1,0 +1,62 @@
+-- ename is a virtual column. Its value derives form last_name and first_name, by
+-- including the last name followed by the first letter of the first name.
+-- eg. Bereket Degefa = degefab
+
+
+-- create tablespace and quota for the tables and all necessary views 
+create table STUDENTS (
+	id number(9, 0) primary key,
+	last_name varchar2(30),
+	first_name varchar2(30),
+	ename varchar2(31) as (last_name || SUBSTR(first_name, 1,1)) unique,
+	major varchar2(25)	
+);
+
+
+create table instructors (
+	id number(9, 0) primary key,
+	last_name varchar2(30),
+	first_name varchar2(30),
+	ename varchar2(31) as (last_name || SUBSTR(first_name, 1,1)) unique,
+	dept varchar2(3)
+);
+
+
+create table courses (
+	crn number(5, 0) primary key,
+	instructor_id number(9, 0)
+);
+
+
+create table enrollment (
+	student_id number(9, 0),
+	crn number(5, 0),
+	grade number(4)	
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
