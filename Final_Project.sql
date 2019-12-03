@@ -2,6 +2,7 @@
 -- November 2019
 -- Bereket, Dagmawi, Evan, Ethan
 
+drop trigger App_administrator.user_type_ctx_trig;
 drop view App_schema.student_enrollment_view;
 drop view App_schema.instructor_view;
 drop table App_schema.students;
@@ -14,10 +15,10 @@ drop user App_schema cascade;
 create user App_schema identified by AS1234;
 grant create session, create any context, create table, create procedure, create view, create trigger to App_schema;
 alter user App_schema quota 100M on USERS;
+
 disconnect;
 
-connect App_schema/AS1234@localhost:1521/orclpdb
-
+connect App_schema/AS1234@orclpdb
 
 --############################################################################################################
 
@@ -67,7 +68,7 @@ create or replace view student_enrollment_view as
 
 disconnect;
 
-connect sys/1234@localhost:1521/orclpdb as sysdba
+connect sys/1234@orclpdb as sysdba
 
 drop role staff_member_role;
 drop role student_role;
@@ -87,7 +88,8 @@ grant execute on dbms_rls to App_administrator;
 grant create procedure to App_administrator;
 grant create role to App_administrator;
 grant create any trigger to App_administrator;
-grant execute package to App_administrator;
+-- grant execute package to App_administrator;
+grant administer database trigger to App_administrator;
 -- grant execute package to App_administrator;
 
 
@@ -98,7 +100,7 @@ disconnect;
 
 -- Define roles for other users
 
-connect App_administrator/AA1234@localhost:1521/orclpdb;
+connect App_administrator/AA1234@orclpdb;
 
 -- create the staff member role
 create role staff_member_role;
@@ -140,10 +142,12 @@ is
 		i App_schema.instructors.ename%type;
 		s App_schema.students.ename%type;
 	begin
-		select ename into e from App_schema.instructors
+		select ename into i from App_schema.instructors
 		where upper(ename) = upper(sys_context('userenv', 'session_user'));
+		
 		select ename into s from App_schema.students
 		where upper(ename) = upper(sys_context('userenv', 'session_user'));
+		
 		if i is not null then
 			dbms_session.set_context('user_type_ctx', 'user_type', 'INSTRUCTOR');
 		elsif s is not null then
@@ -156,7 +160,7 @@ is
 	end;
 end;
 /
-
+show err;
 create or replace trigger user_type_ctx_trig
 after logon on database 
 begin
@@ -172,7 +176,9 @@ create or replace function rls_func (p_schema in varchar2, p_object in varchar2)
 return varchar2
 as
 begin
-	return 'upper(ENAME) = ''' || upper(sys_context('userenv', 'session_user')) || '''';
+	-- for instructors, attach a where condition to prevent them from seeing other instructor ids
+	-- for staff, allow them full access to view ids in the instructors table (don't return a where condition)
+	return 'upper(ENAME) = ''' || upper(sys_context('userenv', 'session_user')) || ''' or ' || sys_context('user_type_ctx', 'user_type') || ' like ''STAFF''';
 exception
 	when others then
 		raise_application_error(-20002, 'Error in VPD function rls_func!');
@@ -180,6 +186,7 @@ end;
 /
 --############################################################################################################
 
+/*
 --############################################################################################################
 -- allow instructors to update their own information, except for id and ename
 begin
@@ -195,12 +202,12 @@ begin
 	);
 end;
 /
+*/
 --############################################################################################################
 
 
 --############################################################################################################
 -- create the instructor vpd policy that allows students/instructors to see all information on instructors, except for IDs
-
 begin
 	dbms_rls.add_policy
 	(
@@ -253,7 +260,7 @@ end;
 
 disconnect;
 
-connect sys/1234@localhost:1521/orclpdb as sysdba
+connect sys/1234@orclpdb as sysdba
 
 drop user SmithW;
 drop user SmithJ;
@@ -282,7 +289,7 @@ grant student_role to SmithW;
 
 
 disconnect;
-connect App_administrator/AA1234@localhost:1521/orclpdb;
+connect App_administrator/AA1234@orclpdb;
 
 insert into App_schema.instructors (id, last_name, first_name, dept) values (1, 'Smith', 'John', 'CSC');
 insert into App_schema.instructors (id, last_name, first_name, dept) values (2, 'Warren', 'Elizabeth', 'HUM');
@@ -303,12 +310,12 @@ insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67)
 */
 
 disconnect;
-connect Staff_1/1234@localhost:1521/orclpdb;
+connect Staff_1/1234@orclpdb;
 
 select * from App_schema.instructors;
 
 disconnect;
-connect SmithJ/1234@localhost:1521/orclpdb
+connect SmithJ/1234@orclpdb
 
 select * from App_schema.instructors;
 select sys_context('user_type_ctx', 'user_type') from dual;
