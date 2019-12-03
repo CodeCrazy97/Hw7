@@ -1,0 +1,25 @@
+insert into STUDENTS (ID, LAST_NAME, FIRST_NAME, ENAME, MAJOR) VALUES (987654321, Wright, Evan, WrightE, Computer Science);
+
+insert into STUDENTS (ID, LAST_NAME, FIRST_NAME, ENAME, MAJOR) VALUES (123456789, Dobs, Josh, DobsJ, Construction);
+
+
+insert into INSTRUCTORS (ID, LAST_NAME, FIRST_NAME, ENAME, DEPT) VALUES(111222333, Smith, Darrel, SmithD, Computer Science);
+
+insert into INSTRUCTORS (ID, LAST_NAME, FIRST_NAME, ENAME, DEPT) VALUES(444555666, Farrington, Rachel, FarringtonR, Film);
+
+
+insert into COURSES (CRN, INSTRUCTOR_ID) VALUES (22222, 111222333);
+
+insert into COURSES (CRN, INSTRUCTOR_ID) VALUES(33333, 444555666);
+
+
+insert into ENROLLMENT(STUDENT_ID, CRN, GRADE) VALUES(987654321, 22222, 4000);
+
+insert into ENROLLMENT(STUDENT_ID, CRN, GRADE) VALUES(123456789, 33333, 5000);
+
+#instructor
+CREATE USER smith IDENTIFIED BY ipassword;
+CREATE USER farrington IDENTIFIED BY ipassword;
+#students
+CREATE USER evan IDENTIFIED BY spassword;
+CREATE USER josh IDENTIFIED BY s1password;

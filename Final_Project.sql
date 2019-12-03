@@ -88,6 +88,7 @@ grant execute on dbms_rls to App_administrator;
 grant create procedure to App_administrator;
 grant create role to App_administrator;
 grant create any trigger to App_administrator;
+grant create any context to App_administrator;
 -- grant execute package to App_administrator;
 grant administer database trigger to App_administrator;
 -- grant execute package to App_administrator;
@@ -128,6 +129,8 @@ grant select on App_schema.instructor_view to instructor_role;
 
 --############################################################################################################
 -- package to define the user type (instructor, student, or staff member)
+create context user_type_ctx using user_type_ctx_pkg;
+
 create or replace package user_type_ctx_pkg
 is
 	procedure set_user_type;
@@ -139,24 +142,22 @@ create or replace package body user_type_ctx_pkg
 is
 	procedure set_user_type
 	is
-		i App_schema.instructors.ename%type;
-		s App_schema.students.ename%type;
+		i integer;
+		s integer;
 	begin
-		select ename into i from App_schema.instructors
+		select NVL(count(*), 0) into i from App_schema.instructors
 		where upper(ename) = upper(sys_context('userenv', 'session_user'));
 		
-		select ename into s from App_schema.students
+		select NVL(count(*), 0) into s from App_schema.students
 		where upper(ename) = upper(sys_context('userenv', 'session_user'));
 		
-		if i is not null then
+		if i > 0 then
 			dbms_session.set_context('user_type_ctx', 'user_type', 'INSTRUCTOR');
-		elsif s is not null then
+		elsif s > 0 then
 			dbms_session.set_context('user_type_ctx', 'user_type', 'STUDENT');
 		else
 			dbms_session.set_context('user_type_ctx', 'user_type', 'STAFF');
 		end if;
-	exception
-		when NO_DATA_FOUND then null;
 	end;
 end;
 /
@@ -176,9 +177,11 @@ create or replace function rls_func (p_schema in varchar2, p_object in varchar2)
 return varchar2
 as
 begin
+	dbms_output.put_line('upper(ENAME) = ' || upper(sys_context('userenv', 'session_user')));
+	dbms_output.put_line(sys_context('user_type_ctx', 'user_type'));
 	-- for instructors, attach a where condition to prevent them from seeing other instructor ids
 	-- for staff, allow them full access to view ids in the instructors table (don't return a where condition)
-	return 'upper(ENAME) = ''' || upper(sys_context('userenv', 'session_user')) || ''' or ' || sys_context('user_type_ctx', 'user_type') || ' like ''STAFF''';
+	return 'upper(ENAME) = ' || upper(sys_context('userenv', 'session_user')) || ' or ' || sys_context('user_type_ctx', 'user_type') || ' like ''STAFF''';
 exception
 	when others then
 		raise_application_error(-20002, 'Error in VPD function rls_func!');
@@ -186,28 +189,9 @@ end;
 /
 --############################################################################################################
 
-/*
---############################################################################################################
--- allow instructors to update their own information, except for id and ename
-begin
-	dbms_rls.add_policy
-	(
-		object_schema=>'APP_SCHEMA',
-		object_name=>'INSTRUCTORS',
-		function_schema=>'APP_ADMINISTRATOR',
-		policy_function=>'RLS_FUNC',
-		policy_name=>'INSTRUCTOR_UPDATE_CFRF',
-		statement_types=>'UPDATE',
-		sec_relevant_cols=>'LAST_NAME, FIRST_NAME, DEPT'
-	);
-end;
-/
-*/
---############################################################################################################
-
-
 --############################################################################################################
 -- create the instructor vpd policy that allows students/instructors to see all information on instructors, except for IDs
+/*
 begin
 	dbms_rls.add_policy
 	(
@@ -222,6 +206,7 @@ begin
 	);
 end;
 /
+*/
 
 --############################################################################################################
 
@@ -254,6 +239,26 @@ end;
 /
 
 --############################################################################################################
+
+-- need to create a trigger for updating the instructor table (instructors can only update of dept, last_name, and first_name)
+
+create or replace trigger instructor_update_trigger
+before update on App_schema.instructors
+referencing new as new old as old
+for each row
+begin
+	-- if it's a staff member, allow them to update anything
+	
+	-- otherwise, an instructor cannot update id/ename (students cannot update anything in the instructor table)
+
+	if (:old.id <> :new.id or :old.ename <> :new.ename) then
+		raise_application_error(-20005, 
+				chr(10) || 
+				'You can only update first name, last name, and dept.' ||
+				chr(10));
+	end if;
+end;
+/
 
 --############################################################################################################
 -- Test insert and create user statements
@@ -311,12 +316,13 @@ insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67)
 
 disconnect;
 connect Staff_1/1234@orclpdb;
-
+set serveroutput on;
 select * from App_schema.instructors;
+select sys_context('user_type_ctx', 'user_type') from dual;
 
 disconnect;
 connect SmithJ/1234@orclpdb
-
+set serveroutput on;
 select * from App_schema.instructors;
 select sys_context('user_type_ctx', 'user_type') from dual;
 --############################################################################################################
