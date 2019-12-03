@@ -1,7 +1,3 @@
--- Final Project - CSC 544
--- November 2019
--- Bereket, Dagmawi, Evan, Ethan
-
 -- users to create App_Admin (app admin) (AA1234)
 -- App_Schema (App Schema) (AS1234)
 -- LayJ	(Staff in registrar) (L1234)
