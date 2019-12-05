@@ -6,6 +6,8 @@ drop user SmithW;
 drop user SmithJ;
 drop user WarrenE;
 drop user WhittakerC;
+drop user McDougallY;
+drop user SmithS;
 drop user Staff_1;
 drop context user_type_ctx;
 drop package App_administrator.user_type_ctx_pkg;
@@ -342,18 +344,6 @@ insert into App_schema.courses (crn, instructor_id) values (38192, 2);
 insert into App_schema.enrollment (student_id, crn, grade) values (1, 49331, 90);
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 49331, 87);
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67);
-
--- connect staff
-disconnect;
-connect Staff_1/1234@localhost:1521/orclpdb;
-
--- connect instructor
-disconnect;
-connect SmithJ/1234@localhost:1521/orclpdb
-
--- connect student
-disconnect;
-connect SmithW/1234@localhost:1521/orclpdb
 
 disconnect;
 connect sys/1234@localhost:1521/orclpdb as sysdba
