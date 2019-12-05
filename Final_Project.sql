@@ -273,19 +273,17 @@ end;
 --############################################################################################################
 -- function for updating the instructor table
 
-create or replace function update_instructor(
+create or replace procedure update_instructor(
 newDept App_schema.instructors.dept%type,
 newLast_name App_schema.instructors.last_name%type,
 newFirst_name App_schema.instructors.first_name%type
 )
-return varchar2
 as
 begin
 	update App_schema.instructors set dept = newDept, last_name = newLast_name, first_name = newFirst_name where upper(ename) = upper(sys_context('userenv', 'session_user'));
-	return 'TRUE';
 end;
 /
-show err;
+
 grant execute on App_administrator.update_instructor to instructor_role;
 --############################################################################################################
 -- Test insert and create user statements
@@ -345,29 +343,17 @@ insert into App_schema.enrollment (student_id, crn, grade) values (1, 49331, 90)
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 49331, 87);
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67);
 
-/*
 -- connect staff
 disconnect;
 connect Staff_1/1234@localhost:1521/orclpdb;
-*/
+
 -- connect instructor
 disconnect;
 connect SmithJ/1234@localhost:1521/orclpdb
-set serveroutput on;
-select * from App_schema.instructors;
 
-
-variable ret varchar2(20);
-execute :ret := App_administrator.update_instructor('CSC', 'Willis', 'Willa');
-select :ret from dual
-
-select * from App_schema.instructors;
---update App_schema.instructors set last_name = 'Johnson';
---select upper(sys_context('userenv', 'session_user')) from dual;
-/*
 -- connect student
 disconnect;
 connect SmithW/1234@localhost:1521/orclpdb
-*/
+
 disconnect;
 connect sys/1234@localhost:1521/orclpdb as sysdba
