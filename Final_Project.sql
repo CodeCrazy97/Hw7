@@ -5,6 +5,7 @@
 drop user SmithW;
 drop user SmithJ;
 drop user WarrenE;
+drop user WhittakerC;
 drop user Staff_1;
 drop context user_type_ctx;
 drop package App_administrator.user_type_ctx_pkg;
@@ -54,16 +55,11 @@ create table enrollment(
 	grade number(4)
 );
 
--- instructor_view will allow students and instructors to view all information in the instructors table, except for id
-create or replace view instructor_view as 
-	select first_name, last_name, ename, dept 
-	from instructors;
-	
 -- view to allow students to see their own records in the enrollment table
 create or replace view student_enrollment_view as 
 	select student_id, crn, grade 
-	from enrollment
-	where student_id = (select id from students where ename = sys_context('ctx', 'ename'));
+	from App_schema.enrollment
+	where student_id = (select id from App_schema.students where upper(ename) = upper(sys_context('userenv', 'session_user')));
 
 --############################################################################################################
 
@@ -77,7 +73,6 @@ connect sys/1234@localhost:1521/orclpdb as sysdba
 create user App_administrator identified by AA1234;
 grant create session to App_administrator with admin option;
 grant select on App_schema.student_enrollment_view to App_administrator with grant option;
-grant select on App_schema.instructor_view to App_administrator with grant option;
 grant select, insert, update, delete on App_schema.students to App_administrator with grant option;
 grant select, insert, update, delete on App_schema.instructors to App_administrator with grant option;
 grant select, insert, update, delete on App_schema.courses to App_administrator with grant option;
@@ -112,7 +107,8 @@ grant select, insert, update, delete on App_schema.enrollment to staff_member_ro
 create role student_role;
 grant select on App_schema.student_enrollment_view to student_role;
 grant select on App_schema.courses to student_role; 
-grant select on App_schema.instructor_view to student_role;
+grant select on App_schema.instructors to student_role; 
+grant select on App_schema.students to student_role;
 
 -- create the instructor role that is assigned to instructors
 create role instructor_role;
@@ -121,9 +117,6 @@ grant select on App_schema.students to instructor_role;
 grant select on App_schema.courses to instructor_role; 
 grant select on App_schema.enrollment to instructor_role;
 grant select on App_schema.instructors to instructor_role; 
-grant update on App_schema.instructors to instructor_role;
-grant select on App_schema.instructor_view to instructor_role;
-
 
 --############################################################################################################
 -- package to define the user type (instructor, student, or staff member)
@@ -181,10 +174,6 @@ begin
 	else 
 		return 'upper(ENAME) = ''' || upper(sys_context('userenv', 'session_user')) || '''';
 	end if;
-	
-	-- for instructors, attach a where condition to prevent them from seeing other instructor ids
-	-- for staff, allow them full access to view ids in the instructors table (don't return a where condition)
-	--return 'upper(ENAME) = ' || upper(sys_context('userenv', 'session_user')) || ' or ' || sys_context('user_type_ctx', 'user_type') || ' like ''STAFF''';
 exception
 	when others then
 		raise_application_error(-20002, 'Error in VPD function rls_func!');
@@ -210,6 +199,45 @@ end;
 /
 --############################################################################################################
 
+
+--############################################################################################################
+-- create the rls function that allows staff and instructors to view all records in the students table, but 
+-- allows students to view only their own records
+
+create or replace function rls_func2 (p_schema in varchar2, p_object in varchar2)
+return varchar2
+as
+begin
+	
+	if sys_context('user_type_ctx', 'user_type') like 'STAFF' or sys_context('user_type_ctx', 'user_type') like 'INSTRUCTOR' then
+		return '1 = 1';
+	else 
+		return 'upper(ENAME) = ''' || upper(sys_context('userenv', 'session_user')) || '''';
+	end if;
+exception
+	when others then
+		raise_application_error(-20002, 'Error in VPD function rls_func!');
+end;
+/
+--############################################################################################################
+
+--############################################################################################################
+-- create the instructor vpd policy that allows students/instructors to see all information on instructors, except for IDs
+begin
+	dbms_rls.add_policy
+	(
+		object_schema=>'APP_SCHEMA',
+		object_name=>'STUDENTS',
+		function_schema=>'APP_ADMINISTRATOR',
+		policy_function=>'RLS_FUNC2',
+		policy_name=>'STUDENTS_CFCF',
+		statement_types=>'SELECT'
+	);
+end;
+/
+--############################################################################################################
+
+
 --############################################################################################################
 -- need to create a trigger for updating the enrollment table (instructors can only update of classes for which they teach)
 
@@ -221,19 +249,22 @@ declare
 	instr_id App_schema.instructors.id%type;
 	instr_id2 App_schema.courses.instructor_id%type;
 begin
-	select id into instr_id from App_schema.instructors where upper(ename) = upper(sys_context('userenv', 'session_user'));
-	select instructor_id into instr_id2 from App_schema.courses where crn = :old.crn;
+	-- let staff update anything in the enrollment table, but instructors are only allowed to update the grades of students in courses they taught
+	if sys_context('user_type_ctx', 'user_type') != 'STAFF' then 	
+		select id into instr_id from App_schema.instructors where upper(ename) = upper(sys_context('userenv', 'session_user'));
+		select instructor_id into instr_id2 from App_schema.courses where crn = :old.crn;
 	
-	if (instr_id != instr_id2) then
-		raise_application_error(-20001, 
-				chr(10) || 
-				'You can only update grades of courses you teach.' ||
-				chr(10));
-	elsif (:new.student_id != :old.student_id or :new.crn != :old.crn) then 
-		raise_application_error(-20001, 
-				chr(10) || 
-				'You are allowed to update only the grades.' ||
-				chr(10));
+		if (instr_id != instr_id2) then
+			raise_application_error(-20001, 
+					chr(10) || 
+					'You can only update grades of courses you teach.' ||
+					chr(10));
+		elsif (:new.student_id != :old.student_id or :new.crn != :old.crn) then 
+			raise_application_error(-20001, 
+					chr(10) || 
+					'You are allowed to update only the grades.' ||
+					chr(10));
+		end if;
 	end if;
 end;
 /
@@ -286,6 +317,9 @@ create user SmithW identified by 1234;
 grant create session to SmithW;
 grant student_role to SmithW;
 
+create user WhittakerC identified by 1234;
+grant create session to WhittakerC;
+grant student_role to WhittakerC;
 
 
 disconnect;
@@ -310,25 +344,19 @@ insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67)
 
 disconnect;
 connect Staff_1/1234@localhost:1521/orclpdb;
-set serveroutput on;
-select * from App_schema.instructors;
-select sys_context('user_type_ctx', 'user_type') from dual;
+update App_schema.enrollment set grade = 55;
 
 disconnect;
 connect SmithJ/1234@localhost:1521/orclpdb
-set serveroutput on;
-select * from App_schema.instructors;
-select sys_context('user_type_ctx', 'user_type') from dual;
-
+update App_schema.enrollment set grade = 98;
+/*
 disconnect;
 connect SmithW/1234@localhost:1521/orclpdb
-set serveroutput on;
-select * from App_schema.instructor_view;
-select sys_context('user_type_ctx', 'user_type') from dual;
---############################################################################################################
+*/
 
--- create a trigger that allows instructors to update the grade of a student in a course they taught
 
+disconnect;
+connect sys/1234@localhost:1521/orclpdb as sysdba
 
 /*
 QUESTIONS
