@@ -113,6 +113,7 @@ grant select on App_schema.students to student_role;
 -- create the instructor role that is assigned to instructors
 create role instructor_role;
 grant update on App_schema.enrollment to instructor_role;
+grant update on App_schema.instructors to instructor_role;
 grant select on App_schema.students to instructor_role; 
 grant select on App_schema.courses to instructor_role; 
 grant select on App_schema.enrollment to instructor_role;
