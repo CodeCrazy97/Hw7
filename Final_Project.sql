@@ -282,7 +282,7 @@ begin
 	-- if it's a staff member, allow them to update anything	
 	-- otherwise, an instructor cannot update id/ename (students cannot update anything in the instructor table)
 	if sys_context('user_type_ctx', 'user_type') != 'STAFF' then
-		if (:old.id <> :new.id or :old.ename <> :new.ename) then
+		if (:old.id <> :new.id) then
 			raise_application_error(-20005, 
 					chr(10) || 
 					'You can only update first name, last name, and dept.' ||
@@ -350,17 +350,21 @@ insert into App_schema.enrollment (student_id, crn, grade) values (1, 49331, 90)
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 49331, 87);
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67);
 
+/*
 -- connect staff
 disconnect;
 connect Staff_1/1234@localhost:1521/orclpdb;
-
+*/
 -- connect instructor
 disconnect;
 connect SmithJ/1234@localhost:1521/orclpdb
-
+set serveroutput on;
+update App_schema.instructors set last_name = 'Johnson' where upper(ename) = upper(sys_context('userenv', 'session_user'));
+select upper(sys_context('userenv', 'session_user')) from dual;
+/*
 -- connect student
 disconnect;
 connect SmithW/1234@localhost:1521/orclpdb
-
+*/
 disconnect;
 connect sys/1234@localhost:1521/orclpdb as sysdba
