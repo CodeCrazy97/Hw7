@@ -271,27 +271,22 @@ end;
 /
 
 --############################################################################################################
+-- function for updating the instructor table
 
--- trigger for updating the instructor table (instructors can only update of dept, last_name, and first_name)
--- staff can update any records in instructors table
-create or replace trigger instructor_update_trigger
-before update on App_schema.instructors
-referencing new as new old as old
-for each row
+create or replace function update_instructor(
+newDept App_schema.instructors.dept%type,
+newLast_name App_schema.instructors.last_name%type,
+newFirst_name App_schema.instructors.first_name%type
+)
+return varchar2
+as
 begin
-	-- if it's a staff member, allow them to update anything	
-	-- otherwise, an instructor cannot update id/ename (students cannot update anything in the instructor table)
-	if sys_context('user_type_ctx', 'user_type') != 'STAFF' then
-		if (:old.id <> :new.id) then
-			raise_application_error(-20005, 
-					chr(10) || 
-					'You can only update first name, last name, and dept.' ||
-					chr(10));
-		end if;
-	end if;
+	update App_schema.instructors set dept = newDept, last_name = newLast_name, first_name = newFirst_name where upper(ename) = upper(sys_context('userenv', 'session_user'));
+	return 'TRUE';
 end;
 /
-
+show err;
+grant execute on App_administrator.update_instructor to instructor_role;
 --############################################################################################################
 -- Test insert and create user statements
 
@@ -359,8 +354,16 @@ connect Staff_1/1234@localhost:1521/orclpdb;
 disconnect;
 connect SmithJ/1234@localhost:1521/orclpdb
 set serveroutput on;
-update App_schema.instructors set last_name = 'Johnson' where upper(ename) = upper(sys_context('userenv', 'session_user'));
-select upper(sys_context('userenv', 'session_user')) from dual;
+select * from App_schema.instructors;
+
+
+variable ret varchar2(20);
+execute :ret := App_administrator.update_instructor('CSC', 'Willis', 'Willa');
+select :ret from dual
+
+select * from App_schema.instructors;
+--update App_schema.instructors set last_name = 'Johnson';
+--select upper(sys_context('userenv', 'session_user')) from dual;
 /*
 -- connect student
 disconnect;
