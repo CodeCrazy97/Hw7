@@ -271,8 +271,8 @@ end;
 
 --############################################################################################################
 
--- need to create a trigger for updating the instructor table (instructors can only update of dept, last_name, and first_name)
-
+-- trigger for updating the instructor table (instructors can only update of dept, last_name, and first_name)
+-- staff can update any records in instructors table
 create or replace trigger instructor_update_trigger
 before update on App_schema.instructors
 referencing new as new old as old
@@ -306,6 +306,14 @@ grant instructor_role to SmithJ;
 create user WarrenE identified by 1234;
 grant create session to WarrenE;
 grant instructor_role to WarrenE;
+
+create user SmithS identified by 1234;
+grant create session to SmithS;
+grant instructor_role to SmithS;
+
+create user McDougallY identified by 1234;
+grant create session to McDougallY;
+grant instructor_role to McDougallY;
 
 -- create staff member(s)
 create user Staff_1 identified by 1234;
@@ -341,15 +349,15 @@ insert into App_schema.enrollment (student_id, crn, grade) values (1, 49331, 90)
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 49331, 87);
 insert into App_schema.enrollment (student_id, crn, grade) values (2, 38192, 67);
 
-
+-- connect staff
 disconnect;
 connect Staff_1/1234@localhost:1521/orclpdb;
-update App_schema.enrollment set grade = 55;
 
+-- connect instructor
 disconnect;
 connect SmithJ/1234@localhost:1521/orclpdb
-update App_schema.enrollment set grade = 98;
 
+-- connect student
 disconnect;
 connect SmithW/1234@localhost:1521/orclpdb
 
