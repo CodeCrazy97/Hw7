@@ -8,4 +8,4 @@ To run the Final_Project.sql file successfully, you must follow the below instru
 5. Run the script file from SQL*Plus.
 6. When the script file has ran successfully, you will be logged in as sysdba. (There is a statement at the end of the SQL file that logs the sysdba back into the SQL*Plus instance.) 
 
-After the script runs, accounts for staff members, instructors, and students will have been created so that you can test this project (check the end of the Final_Project.sql file to see login information).
+After the script runs, accounts for staff members, instructors, and students will have been created so that you can test this project (check the end of the Final_Project.sql file to see login information for the different accounts).
