@@ -278,15 +278,15 @@ before update on App_schema.instructors
 referencing new as new old as old
 for each row
 begin
-	-- if it's a staff member, allow them to update anything
-	
+	-- if it's a staff member, allow them to update anything	
 	-- otherwise, an instructor cannot update id/ename (students cannot update anything in the instructor table)
-
-	if (:old.id <> :new.id or :old.ename <> :new.ename) then
-		raise_application_error(-20005, 
-				chr(10) || 
-				'You can only update first name, last name, and dept.' ||
-				chr(10));
+	if sys_context('user_type_ctx', 'user_type') != 'STAFF' then
+		if (:old.id <> :new.id or :old.ename <> :new.ename) then
+			raise_application_error(-20005, 
+					chr(10) || 
+					'You can only update first name, last name, and dept.' ||
+					chr(10));
+		end if;
 	end if;
 end;
 /
@@ -349,53 +349,9 @@ update App_schema.enrollment set grade = 55;
 disconnect;
 connect SmithJ/1234@localhost:1521/orclpdb
 update App_schema.enrollment set grade = 98;
-/*
+
 disconnect;
 connect SmithW/1234@localhost:1521/orclpdb
-*/
-
 
 disconnect;
 connect sys/1234@localhost:1521/orclpdb as sysdba
-
-/*
-QUESTIONS
-
-1. Should we specify the tablespace size for the App_schema? (Presumably, it will require a lot of storage.)
-2. Does App_schema need EXECUTE DBMS_RLS privilege? Or should that go to App_administrator?
-3. To prevent an instructor from updating id, ename, is the 02_vpd_instructor_cfrf.sql the correct way?
-4. For staff_member_role, do I need to specify the table the privileges apply to, or will "SELECT ANY ON APP_SCHEMA" work?
-5. Should the App_administrator create the roles?
-6. Students don't need the "select on students" privilege, do they? (They will have the TFRF context so they can view their own records.)
-7. We may have to create a context for students to view enrollment. (Currently, it is a view.) Since instructors are granted the privilege to 
-	view this table via the instructor_role, what will happen when an instructor tries to view the table? Will the context come first or the 
-	privilege?
-8. How to do an update trigger?
-9. For the context, who executes the RLS_FUNCTION (inside rls_func.sql) and when?
-10. Our set_ename package has a problem: it should fire for either a student or an instructor. How would we know the difference? Would we just 
-	check the value of ename, if it's null, then go to the instructors table and try finding the ename there?
-
-PROBLEMS:
-Privileges that couldn't be granted to APP_SCHEMA...
-	EXECUTE dbms_rls 
-	create package
-	Also, couldn't create the ctx_trig trigger (after logon on database was the issue)
-
-Privileges that couldn't be granted to App_administrator...
-	EXECUTE package
-
-Tried granting the select on view to App_administrator, it just said: ORA-00993: missing GRANT keyword
-
-------------------------------------------------------------------------------------------------------------------
-
-Need to create a trigger before update on enrollment.
-------------------------------------------------------------------------------------------------------------------
-PROBLEM WITH VPD:
-	Can create the INSTRUCTOR_UPDATE_CFRF policy, but it allows instructors to update their id. How to prevent this? Would using a VPD just not be appropriate here?
-
-
-------------------------------------------------------------------------------------------------------------------
-NOTES
-App_administrator will need to be granted the CREATE ROLE privilege
-
-*/
